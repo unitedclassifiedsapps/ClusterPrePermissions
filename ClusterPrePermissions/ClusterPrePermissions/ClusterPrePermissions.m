@@ -37,6 +37,7 @@ typedef NS_ENUM(NSInteger, ClusterTitleType) {
 #import <EventKit/EventKit.h>
 #import <CoreLocation/CoreLocation.h>
 #import <AVFoundation/AVFoundation.h>
+#import <UserNotifications/UserNotifications.h>
 
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_9_0
 //at least iOS 9 code here
@@ -89,13 +90,13 @@ static ClusterPrePermissions *__sharedInstance;
     switch (status) {
         case AVAuthorizationStatusAuthorized:
             return ClusterAuthorizationStatusAuthorized;
-
+            
         case AVAuthorizationStatusDenied:
             return ClusterAuthorizationStatusDenied;
-
+            
         case AVAuthorizationStatusRestricted:
             return ClusterAuthorizationStatusRestricted;
-
+            
         default:
             return ClusterAuthorizationStatusUnDetermined;
     }
@@ -117,13 +118,13 @@ static ClusterPrePermissions *__sharedInstance;
     switch (status) {
         case ALAuthorizationStatusAuthorized:
             return ClusterAuthorizationStatusAuthorized;
-
+            
         case ALAuthorizationStatusDenied:
             return ClusterAuthorizationStatusDenied;
-
+            
         case ALAuthorizationStatusRestricted:
             return ClusterAuthorizationStatusRestricted;
-
+            
         default:
             return ClusterAuthorizationStatusUnDetermined;
     }
@@ -161,17 +162,17 @@ static ClusterPrePermissions *__sharedInstance;
 + (ClusterAuthorizationStatus) eventPermissionAuthorizationStatus:(ClusterEventAuthorizationType)eventType
 {
     EKAuthorizationStatus status = [EKEventStore authorizationStatusForEntityType:
-                  [[ClusterPrePermissions sharedPermissions] EKEquivalentEventType:eventType]];
+                                    [[ClusterPrePermissions sharedPermissions] EKEquivalentEventType:eventType]];
     switch (status) {
         case EKAuthorizationStatusAuthorized:
             return ClusterAuthorizationStatusAuthorized;
-
+            
         case EKAuthorizationStatusDenied:
             return ClusterAuthorizationStatusDenied;
-
+            
         case EKAuthorizationStatusRestricted:
             return ClusterAuthorizationStatusRestricted;
-
+            
         default:
             return ClusterAuthorizationStatusUnDetermined;
     }
@@ -184,13 +185,13 @@ static ClusterPrePermissions *__sharedInstance;
         case kCLAuthorizationStatusAuthorizedAlways:
         case kCLAuthorizationStatusAuthorizedWhenInUse:
             return ClusterAuthorizationStatusAuthorized;
-
+            
         case kCLAuthorizationStatusDenied:
             return ClusterAuthorizationStatusDenied;
-
+            
         case kCLAuthorizationStatusRestricted:
             return ClusterAuthorizationStatusRestricted;
-
+            
         default:
             return ClusterAuthorizationStatusUnDetermined;
     }
@@ -199,7 +200,7 @@ static ClusterPrePermissions *__sharedInstance;
 + (ClusterAuthorizationStatus) pushNotificationPermissionAuthorizationStatus
 {
     BOOL didAskForPermission = [[NSUserDefaults standardUserDefaults] boolForKey:ClusterPrePermissionsDidAskForPushNotifications];
-
+    
     if (didAskForPermission) {
         if ([[UIApplication sharedApplication] respondsToSelector:@selector(isRegisteredForRemoteNotifications)]) {
             // iOS8+
@@ -209,7 +210,7 @@ static ClusterPrePermissions *__sharedInstance;
                 return ClusterAuthorizationStatusDenied;
             }
         } else {
-
+            
             // Add compiler check to avoid warnings, if deployment target >= 8.0
 #if __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_8_0
             // iOS 7
@@ -302,12 +303,19 @@ static ClusterPrePermissions *__sharedInstance;
                                              selector:@selector(applicationDidBecomeActive)
                                                  name:UIApplicationDidBecomeActiveNotification
                                                object:nil];
-
+    
     if ([[UIApplication sharedApplication] respondsToSelector:@selector(isRegisteredForRemoteNotifications)]) {
-        // iOS8+
-        UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:(UIUserNotificationType)self.requestedPushNotificationTypes
-                                                                                 categories:nil];
-        [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
+        if (@available(iOS 10.0, *)) {
+            UNUserNotificationCenter* center = [UNUserNotificationCenter currentNotificationCenter];
+            [center requestAuthorizationWithOptions:(UNAuthorizationOptionAlert + UNAuthorizationOptionBadge + UNAuthorizationOptionSound) completionHandler:^(BOOL granted, NSError * _Nullable error) {}];
+            
+        } else {
+            // iOS8+
+            UIUserNotificationSettings *settings = [UIUserNotificationSettings settingsForTypes:(UIUserNotificationType)self.requestedPushNotificationTypes
+                                                                                     categories:nil];
+            [[UIApplication sharedApplication] registerUserNotificationSettings:settings];
+        }
+        
         [[UIApplication sharedApplication] registerForRemoteNotifications];
     } else {
         // Add compiler check to avoid warnings, if deployment target >= 8.0
@@ -568,7 +576,7 @@ static ClusterPrePermissions *__sharedInstance;
     }
     denyButtonTitle  = [self titleFor:ClusterTitleTypeDeny fromTitle:denyButtonTitle];
     grantButtonTitle = [self titleFor:ClusterTitleTypeRequest fromTitle:grantButtonTitle];
-
+    
     ALAuthorizationStatus status = [ALAssetsLibrary authorizationStatus];
     if (status == ALAuthorizationStatusNotDetermined) {
         self.photoPermissionCompletionHandler = completionHandler;
@@ -581,11 +589,11 @@ static ClusterPrePermissions *__sharedInstance;
                                          denyButtonTitle:denyButtonTitle
                                        denyButtionAction:^(UIAlertAction *action) {
                                            [self firePhotoPermissionCompletionHandler];
-            }
+                                       }
                                         grantButtonTitle:grantButtonTitle
                                       grantButtionAction:^(UIAlertAction *action) {
                                           [self showActualPhotoPermissionAlert];
-            }];
+                                      }];
             
         } else {
             self.prePhotoPermissionAlertView = [[UIAlertView alloc] initWithTitle:requestTitle
@@ -649,9 +657,9 @@ static ClusterPrePermissions *__sharedInstance;
 
 #pragma mark - Contact Permissions Help
 /*!
-* @discussion get the authorization status of accessing contacts. It handles both uses of Contacts framework iOS 9+ or AddressBook fremwork < iOS 9
-* @param ClusterContactsAuthorizationType
-*/
+ * @discussion get the authorization status of accessing contacts. It handles both uses of Contacts framework iOS 9+ or AddressBook fremwork < iOS 9
+ * @param ClusterContactsAuthorizationType
+ */
 -(ClusterContactsAuthorizationType)getContactsAuthorizationType{
     
 #if __IPHONE_OS_VERSION_MIN_REQUIRED >= __IPHONE_9_0
@@ -1012,18 +1020,18 @@ static ClusterPrePermissions *__sharedInstance;
 {
     self.locationManager = [[CLLocationManager alloc] init];
     self.locationManager.delegate = self;
-
+    
     if (self.locationAuthorizationType == ClusterLocationAuthorizationTypeAlways &&
         [self.locationManager respondsToSelector:@selector(requestAlwaysAuthorization)]) {
-
+        
         [self.locationManager requestAlwaysAuthorization];
-
+        
     } else if (self.locationAuthorizationType == ClusterLocationAuthorizationTypeWhenInUse &&
                [self.locationManager respondsToSelector:@selector(requestWhenInUseAuthorization)]) {
-
+        
         [self.locationManager requestWhenInUseAuthorization];
     }
-
+    
     [self.locationManager startUpdatingLocation];
 }
 
@@ -1086,7 +1094,7 @@ static ClusterPrePermissions *__sharedInstance;
             // User granted access, now show the REAL permissions dialog
             [self showActualAVPermissionAlertWithType:alertView.tag];
         }
-
+        
         self.preAVPermissionAlertView = nil;
     } else if (alertView == self.prePhotoPermissionAlertView) {
         if (buttonIndex == alertView.cancelButtonIndex) {
@@ -1096,7 +1104,7 @@ static ClusterPrePermissions *__sharedInstance;
             // User granted access, now show the REAL permissions dialog
             [self showActualPhotoPermissionAlert];
         }
-
+        
         self.prePhotoPermissionAlertView = nil;
     } else if (alertView == self.preContactPermissionAlertView) {
         if (buttonIndex == alertView.cancelButtonIndex) {
